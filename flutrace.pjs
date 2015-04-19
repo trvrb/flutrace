@@ -47,6 +47,7 @@ float BG;
 float OUTLINE;
 float MULT;
 float BLENDINGCOL;
+float CARRYING_CAPICITY;
 
 int D;
 int[] N;
@@ -97,8 +98,9 @@ void setup() {
 	MIG = 1;								// migration events per year
 	FRAMESPERYEAR = 800.0; // 1800.0		// provides timescale
 	
-	MULT = 8.0; // 8.0 // 30.0
+	MULT = 6.0; // 8.0 // 30.0
 	GEN = (5.0*MULT) / 365.0;				// years per generation
+	CARRYING_CAPICITY = 0.5;	
 	
 	D = 7;
 	N = new int[D];
@@ -111,7 +113,7 @@ void setup() {
 	N[6] = int(170 / MULT);		// USA: 300 million
 	
 	EPS = new int[D];
-	EPS[0] = 0.05;		// China
+	EPS[0] = 0.0;		// China
 	EPS[1] = 0.5;		// Europe
 	EPS[2] = 0.5;		// Japan
 	EPS[3] = 0.5;		// Oceania
@@ -460,6 +462,7 @@ class Population {
   	float rad; 		// radius of population
   	color col;
 	float[] em;
+	float baseline;	// avg population size
 	float eps;		// magnitude of seasonal forcing
 	float phase;	// phase of seasonal forcing
   	
@@ -475,6 +478,8 @@ class Population {
 		ploc = l;
 		rad = r;
 		col = c;
+		
+		baseline = n;
 		eps = e;
 		phase = p;
 		
@@ -555,12 +560,24 @@ class Population {
 	}	
 	
 	void splitstep() {													// called once per frame
-		float popBD = (1 / (GEN * FRAMESPERYEAR) ) * (float) size();	// year / gen * frames per year = frames / gen
-		int events = poissonSample(popBD);								// population birth-death rate
+
+		float popsize = (float) size();
+		float mod = 1 - CARRYING_CAPICITY * ((popsize - baseline)/baseline);
+
+		// death events
+		float popDeathRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize;		// year / gen * frames per year = frames / gen
+		int events = poissonSample(popDeathRate);
 		for (int i = 0; i < events; i++) {
 			die();
+		}								
+		
+		// birth events
+		float popBirthRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize * (float) forcing() * mod;	// year / gen * frames per year = frames / gen
+		int events = poissonSample(popBirthRate);												
+		for (int i = 0; i < events; i++) {
 			replicate();
 		}
+
 	}
 	
 	void cleanup() {
@@ -815,9 +832,8 @@ class Population {
 		return force;
 	}
 	
-	float targetSize(f) {
-		float target;
-		
+	float forcing() {
+		return (1+eps*cos((TIMEOFYEAR+phase)*2*PI));
 	}	
 	
 }
