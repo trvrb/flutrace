@@ -1,5 +1,5 @@
 // SCTRACE
-// Copyright 2009-2012 Trevor Bedford
+// Copyright 2009-2015 Trevor Bedford
 
 /*	This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -46,7 +46,6 @@ boolean SHOWWORLD;
 float BG;
 float OUTLINE;
 float MULT;
-float ELAPSED;
 float BLENDINGCOL;
 
 int D;
@@ -54,7 +53,9 @@ int[] N;
 color[] C;
 float[] XLOC;
 float[] YLOC;
-float[][] M;
+float[][] M;	// migration matrix
+float[] EPS;	// seasonal forcing magnitude
+float[] PHASE;	// seasonal forcing phase
 
 Landscape landscape;
 PFont fontN;
@@ -91,8 +92,8 @@ void setup() {
 	BG = 20;
 	OUTLINE = 100;
 	BLENDINGCOL = 150;
+	TIMEOFYEAR = 0;	// on 0 to 1
 	
-	ELAPSED = 0;
 	MIG = 1;								// migration events per year
 	FRAMESPERYEAR = 800.0; // 1800.0		// provides timescale
 	
@@ -101,13 +102,31 @@ void setup() {
 	
 	D = 7;
 	N = new int[D];
-	N[0] = int(330 / MULT);	// China: 1200 million
+	N[0] = int(330 / MULT);		// China: 1200 million
 	N[1] = int(220 / MULT);		// Europe: 500 million
 	N[2] = int(110 / MULT);		// Japan: 130 million
 	N[3] = int(60 / MULT);		// Oceania: 30 million
 	N[4] = int(220 / MULT);		// South America: 500 million
 	N[5] = int(220 / MULT);		// Southeast Asia: 500 million
 	N[6] = int(170 / MULT);		// USA: 300 million
+	
+	EPS = new int[D];
+	EPS[0] = 0.05;		// China
+	EPS[1] = 0.5;		// Europe
+	EPS[2] = 0.5;		// Japan
+	EPS[3] = 0.5;		// Oceania
+	EPS[4] = 0.5;		// South America
+	EPS[5] = 0.0;		// Southeast Asia
+	EPS[6] = 0.5;		// USA
+	
+	PHASE = new int[D];
+	PHASE[0] = 0.0;		// China
+	PHASE[1] = 0.0;		// Europe
+	PHASE[2] = 0.0;		// Japan
+	PHASE[3] = 0.5;		// Oceania
+	PHASE[4] = 0.5;		// South America
+	PHASE[5] = 0.0;		// Southeast Asia
+	PHASE[6] = 0.0;		// USA	
 	
 	colorMode(RGB,100);
 	C = new color[D];
@@ -216,6 +235,11 @@ void draw() {
 	if (FRATE) { showFrameRate(); }
 	if (SHOWTIME) { timeOfYear(); }
 	blendingDisplay();
+	setTimeOfYear();
+}
+
+void setTimeOfYear() {
+	TIMEOFYEAR = (frameCount % int(FRAMESPERYEAR)) / width;
 }
 
 void help() {
@@ -264,24 +288,22 @@ void stats() {
 }
 
 void timeOfYear() {
-
-	float interval = (float) width / FRAMESPERYEAR; 
-	int count = frameCount % int(FRAMESPERYEAR);		// gives 0 to FRAMESPERYEAR
-	ELAPSED += interval;
-	if (ELAPSED<0) { ELAPSED = width; }
-	if (ELAPSED>width) { ELAPSED = 0; }
 	
 	float col = 35;
 	fill(0,0,col);
 	stroke(0,0,col);
-	line(0,height-15,width,height-15);
-	stroke(0,0,OUTLINE);	
-	ellipse(ELAPSED,height-15, 10,10);
+	line(0, height-30, width, height-30);
+	stroke(0,0,OUTLINE);
+	float xval = TIMEOFYEAR * width;
+	line(xval, height-25, xval, height-35);
 	
 	textFont(fontN, 16);
 	fill(0,0,OUTLINE);
-	count = frameCount / int(FRAMESPERYEAR);	
-	text(nf(count, 1, 2),10,height-20);
+	months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+	interval = (float) width / 12.0;
+	for (int i=0; i < months.length(); i++) {
+		text(months[i], i * interval + 10, height-10);
+	}
 	
 }
 
@@ -433,29 +455,15 @@ class Individual {
 
 class Population {
   
-  	ArrayList pop; // An arraylist for all the individuals
-  	PVector ploc; // location of population center
-  	float rad; // radius of population
+  	ArrayList pop; 	// An arraylist for all the individuals
+  	PVector ploc; 	// location of population center
+  	float rad; 		// radius of population
   	color col;
 	float[] em;
-
-  	Population(int n) {
+	float eps;		// magnitude of seasonal forcing
+	float phase;	// phase of seasonal forcing
   	
-    	pop = new ArrayList(); 
-    	for (int i=0; i < n; i++) {
-    		float w = random(0,width);
-    		float h = random(0,height);
-    		pop.add(new Individual(new PVector(w,h), color(INDHUE,90,100)));
-    	}
-    	
-    	rad = 100;
-    	float w = random(rad,width-rad);
-    	float h = random(rad,height-rad);
-		ploc = new PVector(w,h);
-		col = color(random(0,100),90,100);
-  	}
-  	
-  	Population(PVector l, float r, color c, int n) {
+  	Population(PVector l, float r, color c, int n, float e, float p) {
   	
     	pop = new ArrayList(); 
     	for (int i=0; i < n; i++) {
@@ -467,6 +475,8 @@ class Population {
 		ploc = l;
 		rad = r;
 		col = c;
+		eps = e;
+		phase = p;
 		
   	}  	
 
@@ -805,6 +815,11 @@ class Population {
 		return force;
 	}
 	
+	float targetSize(f) {
+		float target;
+		
+	}	
+	
 }
 
 // The Landscape (a list of Population objects)
@@ -821,7 +836,7 @@ class Landscape {
 //		for (int i=0; i<10; i++) { ls.add(new Population(10)); }
 
 		for (int i=0; i<D; i++) {
-			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, C[i], N[i] ));
+			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, C[i], N[i], EPS[i], PHASE[i] ));
 		}
 
   	}
@@ -829,7 +844,7 @@ class Landscape {
   	void reset() {
   	    ls = new ArrayList(); 
 		for (int i=0; i<D; i++) {
-			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, C[i], N[i] ));
+			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, C[i], N[i], EPS[i], PHASE[i] ));
 		}
   	}
   	
