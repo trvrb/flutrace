@@ -43,15 +43,21 @@ boolean SHOWTIME;
 boolean SHOWIND;
 boolean BLENDING;
 boolean SHOWWORLD;
+boolean TRACING;
 float BG;
 float OUTLINE;
 float MULT;
 float BLENDINGCOL;
 float CARRYING_CAPICITY;
 
+boolean TWODIMEN;
+int TRACEDEPTH;
+int TRACESTEP;
+float PUSHBACK;
+
 int D;
 int[] N;
-color[] C;
+float[] H;
 float[] XLOC;
 float[] YLOC;
 float[][] M;	// migration matrix
@@ -71,6 +77,7 @@ void setup() {
 	rectMode(CENTER);
 	smooth();
 
+	TWODIMEN = true;
 	MIGRATION = true;
 	DYNAMICS = true;
 	STATISTICS = false;
@@ -82,18 +89,23 @@ void setup() {
 	SHOWIND = true;
 	BLENDING = true;
 	SHOWWORLD = true;
+	TRACING = true;	
 
 	CHARGE = 15; // 30
-	MAXVEL = 3.0; // 3.0 // 1800.0
+	MAXVEL = 4.0; // 3.0 // 1800.0
 	MAXRAD = 3.5; // 6
 	BASELINE = 25;
 	WALLMULTIPLIER = 20;
-	PMULTIPLIER = 10; // 10 // 30
+	PMULTIPLIER = 5; // 10 // 30
 	BLEND = 0.5; // 0.5
 	BG = 20;
 	OUTLINE = 100;
 	BLENDINGCOL = 150;
 	TIMEOFYEAR = 0;	// on 0 to 1
+	
+	TRACEDEPTH = 20; // 300
+	TRACESTEP = 18; // 20
+	PUSHBACK = 0.75;	
 	
 	MIG = 1;								// migration events per year
 	FRAMESPERYEAR = 800.0; // 1800.0		// provides timescale
@@ -130,16 +142,14 @@ void setup() {
 	PHASE[5] = 0.0;		// Southeast Asia
 	PHASE[6] = 0.0;		// USA	
 	
-	colorMode(RGB,100);
-	C = new color[D];
-	C[0] = color(45.9,10.9,53.8);
-	C[1] = color(90.2,54.1,20.9);
-	C[2] = color(51.3,73,44.2);
-	C[3] = color(85.7,13.1,13.2);
-	C[4] = color(60,40,20);
-	C[5] = color(32.4,60.9,70.8);
-	C[6] = color(76.5,72.8,27.4);
-	colorMode(HSB,100);
+	H = new float[D];
+	H[0] = 0;
+	H[1] = 70;
+	H[2] = 28;
+	H[3] = 42;
+	H[4] = 56;
+	H[5] = 14;
+	H[6] = 84;
 	
 	XLOC = new float[D];
 	XLOC[0] = 100;
@@ -258,6 +268,8 @@ void help() {
 	text("SPACE",10,h); text("-  start/stop animation",70,h); h += mod;
 	text("D",10,h); text("-  start/stop population dynamics",70,h); h += mod;
 	text("M",10,h); text("-  start/stop migration",70,h); h += mod;
+	text("T",10,h); text("-  show/hide tracing",fromleft,h); h += mod;
+	text("2",10,h); text("-  switch between 1 and 2 dimensions",fromleft,h); h += mod;		
 	text("LEFT",10,h); text("-  decrease speed",70,h); h += mod;
 	text("RIGHT",10,h); text("-  increase speed",70,h); h += mod;
 	text("CLICK",10,h); text("-  start/stop blending",70,h); h += mod;	
@@ -291,9 +303,8 @@ void stats() {
 
 void timeOfYear() {
 	
-	float col = 35;
-	fill(0,0,col);
-	stroke(0,0,col);
+	fill(0,0,35);
+	stroke(0,0,35);
 	line(0, height-30, width, height-30);
 	stroke(0,0,OUTLINE);
 	float xval = TIMEOFYEAR * width;
@@ -353,6 +364,23 @@ void keyPressed() {
   	if (key == 'm') {
 		if (MIGRATION) { MIGRATION = false; }
 		else if (!MIGRATION) { MIGRATION = true; }
+  	}
+  	if (key == 't') {
+		if (TRACING) { TRACING = false; }
+		else if (!TRACING) { 
+			population.resetTrace();
+			TRACING = true; 
+		}
+  	}
+  	if (key == '2') {
+		if (TWODIMEN) { 
+			population.resetTrace();
+			TWODIMEN = false; 
+		}
+		else if (!TWODIMEN) { 
+			population.resetTrace();
+			TWODIMEN = true; 
+		}
   	}   	
   	if (key == 'd') {
 		if (DYNAMICS) { DYNAMICS = false; }
@@ -396,6 +424,7 @@ float timeInterval(float y) {
 	return pixels;
 	
 }
+
 class Individual {
 
 	PVector loc;
@@ -404,9 +433,10 @@ class Individual {
 	float rad;
 	boolean growing;
 	boolean dying;
-	color col;
+	float hue;
+	ArrayList trace;	
 
-	Individual(PVector l, color c) {
+	Individual(PVector l, float h) {
 	
 		loc = l.get();
     	vel = new PVector(0,0);
@@ -414,7 +444,17 @@ class Individual {
     	rad = 0.001;
     	growing = true;
     	dying = false;
-    	col = c;
+    	hue = h;
+
+  		if (!TWODIMEN) {
+			loc.y = height-BASELINE;					// constrains to horizontal line	
+		}
+
+    	trace = new ArrayList();
+    	for (int i = 0; i < TRACEDEPTH; i++) {
+    		PVector tl = new PVector(loc.x,loc.y,hue);
+    		trace.add(tl);
+    	}    	
   		      	
 	}
 	    
@@ -439,14 +479,51 @@ class Individual {
 		vel = new PVector(0,0);
 		acc = new PVector(0,0);
 	}
+
+	void extendTrace() {
+    	PVector tl = new PVector(loc.x,loc.y,hue);
+    	trace.add(tl);
+    	trace.remove(0);
+	}
+
+	void resetTrace() {
+	    trace = new ArrayList();
+    	for (int i = 0; i < TRACEDEPTH; i++) {
+    		PVector tl = new PVector(loc.x,loc.y,hue);
+    		trace.add(tl);
+    	}
+	}
 		  
 	void display() {
-		displayInd();
+    	if (TRACING) { displayTrace(); }	
+		displayInd();	
   	}
-  	 	
+
+  	void displayTrace() {
+  	    // draw tail on each individual
+  	    // this is counting down from the tail of the trace
+    	float tempx = loc.x;
+    	float tempy = loc.y;
+    	float temph = hue;
+    	for (int i = TRACEDEPTH - 1; i > 0; i--) {
+   			PVector tl = (PVector) trace.get(i);
+    		if (!TWODIMEN) {
+    			tl.y = tl.y - PUSHBACK;
+    		}
+    		if (BRANCHCOLORING) { stroke(tl.z,90,100); }
+    		else {
+    			if (GRAYBG) { stroke(tl.z,0,100); }
+    			else { stroke(tl.z,0,0); }
+    		}
+    		line(tempx, tempy, tl.x, tl.y);
+    		tempx = tl.x;
+    		tempy = tl.y;
+    	}
+  	}
+
   	void displayInd() {
   	    // draw a circle for each individual
-		fill(col); // 223,227,197
+		fill(hue,90,100); // 223,227,197		
     	stroke(0,0,OUTLINE);
     	ellipse(loc.x, loc.y, rad*2, rad*2);
   	}
@@ -460,24 +537,24 @@ class Population {
   	ArrayList pop; 	// An arraylist for all the individuals
   	PVector ploc; 	// location of population center
   	float rad; 		// radius of population
-  	color col;
+  	float hue;
 	float[] em;
 	float baseline;	// avg population size
 	float eps;		// magnitude of seasonal forcing
 	float phase;	// phase of seasonal forcing
   	
-  	Population(PVector l, float r, color c, int n, float e, float p) {
+  	Population(PVector l, float r, float hu, int n, float e, float p) {
   	
     	pop = new ArrayList(); 
     	for (int i=0; i < n; i++) {
     		float w = random(0,width);
     		float h = random(0,height);
-    		pop.add(new Individual(new PVector(w,h), c));
+    		pop.add(new Individual(new PVector(w,h), hu));
     	}
     	
 		ploc = l;
 		rad = r;
-		col = c;
+		hue = hu;
 		
 		baseline = n;
 		eps = e;
@@ -509,14 +586,13 @@ class Population {
 			Individual ind = (Individual) pop.get(rand);
 			float newx = ind.loc.x + random(-1,1);
 			float newy = ind.loc.y + random(-1,1);
-			color nc = ind.col;
-			pop.add(new Individual( new PVector(newx,newy), nc));
+			pop.add(new Individual( new PVector(newx,newy), ind.hue));
 			
 		}
 		else {
 			float w = width/2 + random(-1,1);
 			float h = height/2 + random(-1,1);
-			pop.add(new Individual(new PVector(w,h), col));
+			pop.add(new Individual(new PVector(w,h), hue));
 		}
 		
 	}
@@ -619,32 +695,71 @@ class Population {
 	void pushColor() {
 		for (int i = 0; i < pop.size(); i++) {
 		
-			Individual ind = (Individual) pop.get(i);  
+			Individual ind = (Individual) pop.get(i); 
+			ind.hue = hue;
 			
-			colorMode(RGB,100);				// temporarily switch to RGB color mode
-
-			float ir = red(ind.col);
-			float pr = red(col);			
+			/*
+			color fromcolor = color(ind.hue,90,100);
+			color tocolor = color(hue,90,100);						
+			
+			colorMode(RGB,1.0);				// temporarily switch to RGB color mode
+			
+			float ir = red(fromcolor);
+			float pr = red(tocolor);			
 			if (ir < pr - BLEND) { ir += BLEND; }
 			else if (ir > pr + BLEND) { ir -= BLEND; }
 			else { ir = pr; }
 
-			float ig = green(ind.col);
-			float pg = green(col);
+			float ig = green(fromcolor);
+			float pg = green(tocolor);
 			if (ig < pg - BLEND) { ig += BLEND; }
 			else if (ig > pg + BLEND) { ig -= BLEND; }
 			else { ig = pg; }			
 			
-			float ib = blue(ind.col);
-			float pb = blue(col);	
+			float ib = blue(fromcolor);
+			float pb = blue(tocolor);	
 			if (ib < pb - BLEND) { ib += BLEND; }
 			else if (ib > pb + BLEND) { ib -= BLEND; }
-			else { ib = pb; }		
+			else { ib = pb; }
+				
+			colorMode(HSB,100);				// temporarily switch to RGB color mode			
+
+			float max = 1;
+			if (ir >= ig && ir >= ib) {
+				max = ir;
+			}
+			if (ig >= ir && ig >= ib) {
+				max = ig;
+			}
+			if (ib >= ir && ib >= ig) {
+				max = ib;
+			}
+			float min = 0;
+			if (ir <= ig && ir <= ib) {
+				min = ir;
+			}
+			if (ig <= ir && ig <= ib) {
+				min = ig;
+			}
+			if (ib <= ir && ib <= ig) {
+				min = ib;
+			}							
+			float denom = (max-min);
 			
-			ind.col = color(ir,ig,ib);
+			float newhue = 0;			
+			if (ir >= ig && ir >= ib) {
+				newhue = (ig-ib) / denom;
+			}
+			if (ig >= ir && ig >= ib) {
+				newhue = 2.0 + (ib-ir) / denom;
+			}
+			if (ib >= ir && ib >= ig) {
+				newhue = 4.0 + (ir-ig) / denom;
+			}						
+ 
+			ind.hue = 16.666*newhue; */
+			
 		
-			colorMode(HSB,100);
-			
 		}	
 	}
 	
@@ -846,13 +961,9 @@ class Landscape {
   	
 	Landscape() {
     	ls = new ArrayList(); 
-//		ls.add(new Population(new PVector(150,height/2+150), 100, color(60,90,100), 10 ));
-//		ls.add(new Population(new PVector(width/2,height/2-150), 100, color(20,90,100), 10 ));
-//		ls.add(new Population(new PVector(width-150,height/2+150), 100, color(90,90,100), 10 ));
-//		for (int i=0; i<10; i++) { ls.add(new Population(10)); }
 
 		for (int i=0; i<D; i++) {
-			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, C[i], N[i], EPS[i], PHASE[i] ));
+			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, H[i], N[i], EPS[i], PHASE[i] ));
 		}
 
   	}
@@ -860,7 +971,7 @@ class Landscape {
   	void reset() {
   	    ls = new ArrayList(); 
 		for (int i=0; i<D; i++) {
-			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, C[i], N[i], EPS[i], PHASE[i] ));
+			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, H[i], N[i], EPS[i], PHASE[i] ));
 		}
   	}
   	
@@ -902,7 +1013,7 @@ class Landscape {
 				rand = int(random(0,pop.size()));
 				ind = (Individual) pop.pop.get(rand);
 			}
-			Individual cind = new Individual(ind.loc,ind.col);
+			Individual cind = new Individual(ind.loc, ind.hue);
 			pop.die(rand);
 			
 			// replicate another random individual, this keeps the population size constant
