@@ -91,7 +91,7 @@ void setup() {
 	SHOWWORLD = true;
 	TRACING = true;	
 
-	CHARGE = 3; // 30
+	CHARGE = 2.5; // 30
 	MAXVEL = 5.0; // 3.0 // 1800.0
 	MAXRAD = 3.5; // 6
 	BASELINE = 25;
@@ -112,7 +112,7 @@ void setup() {
 	
 	MULT = 6.0; // 8.0 // 30.0
 	GEN = (5.0*MULT) / 365.0;				// years per generation
-	CARRYING_CAPICITY = 0.5;	
+	CARRYING_CAPICITY = 0.6;	
 	
 	D = 7;
 	N = new int[D];
@@ -646,7 +646,8 @@ class Population {
 	void splitstep() {													// called once per frame
 
 		float popsize = (float) size();
-		float mod = 1 - CARRYING_CAPICITY * ((popsize - baseline)/baseline);
+		float target = targetSize();
+		float mod = 1 - CARRYING_CAPICITY * ((popsize - target)/target);
 
 		// death events
 		float popDeathRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize;		// year / gen * frames per year = frames / gen
@@ -662,6 +663,10 @@ class Population {
 			replicate();
 		}
 
+	}
+	
+	float targetSize() {
+		return baseline * (1 + eps*cos((TIMEOFYEAR+phase)*2*PI));
 	}
 	
 	void cleanup() {
