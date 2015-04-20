@@ -588,9 +588,11 @@ class Population {
 		if (pop.size() > 0) {
 			int rand = int(random(0,pop.size()));
 			Individual ind = (Individual) pop.get(rand);
-			float newx = ind.loc.x + random(-1,1);
-			float newy = ind.loc.y + random(-1,1);
-			pop.add(new Individual( new PVector(newx,newy), ind.hue));
+			if (PVector.dist(ind.loc, ploc) < 100) {
+				float newx = ind.loc.x + random(-1,1);
+				float newy = ind.loc.y + random(-1,1);
+				pop.add(new Individual( new PVector(newx,newy), ind.hue));
+			}
 			
 		}
 		else {
@@ -623,8 +625,10 @@ class Population {
 				rand = int(random(0,pop.size()));
 				ind = (Individual) pop.get(rand);
 			}
-			ind.dying = true;
-			ind.growing = false;
+			if (PVector.dist(ind.loc, ploc) < 100) {
+				ind.dying = true;
+				ind.growing = false;
+			}
 			return true;
 		}
 		else {
