@@ -84,19 +84,19 @@ void setup() {
 	HELP = false;
 	FRATE = false;
 	BORDERS = false;
-	PERIODIC = true;
+	PERIODIC = false;
 	SHOWTIME = true;
 	SHOWIND = true;
 	BLENDING = true;
 	SHOWWORLD = true;
 	TRACING = true;	
 
-	CHARGE = 15; // 30
-	MAXVEL = 4.0; // 3.0 // 1800.0
+	CHARGE = 3; // 30
+	MAXVEL = 5.0; // 3.0 // 1800.0
 	MAXRAD = 3.5; // 6
 	BASELINE = 25;
 	WALLMULTIPLIER = 20;
-	PMULTIPLIER = 5; // 10 // 30
+	PMULTIPLIER = 10; // 10 // 30
 	BLEND = 0.5; // 0.5
 	BG = 20;
 	OUTLINE = 100;
@@ -1064,11 +1064,12 @@ class Landscape {
 			
 				// repel from other Individuals
 				for (int pbIndex = 0; pbIndex < ls.size(); pbIndex++) {
-					Population populationB = (Population) ls.get(pbIndex);
+				
+					if (paIndex == pbIndex) {
+				
+						Population populationB = (Population) ls.get(pbIndex);
 					
-					for (int ibIndex = 0 ; ibIndex < populationB.size(); ibIndex++) {
-					
-						if (paIndex == pbIndex) {
+						for (int ibIndex = 0 ; ibIndex < populationB.size(); ibIndex++) {
 					
 							if (iaIndex != ibIndex) {
 			
