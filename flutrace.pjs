@@ -575,6 +575,10 @@ class Population {
 	int size() {
 		return pop.size();
 	}
+	
+	Individual getIndividual(int index) {
+		return (Individual) pop[index];
+	}
 
 	void addIndividual(Individual ind) {
 		pop.add(ind);
@@ -826,23 +830,7 @@ class Population {
 			PVector push = new PVector(0,0);
 			float distance;
 			PVector diff;
-			
-			// repel from other Individuals
-			for (int j = 0 ; j < pop.size(); j++) {
-				if (i != j) {
-			
-					Individual jnd = (Individual) pop.get(j);
-					// Calculate vector pointing away from neighbor
-					diff = PVector.sub(ind.loc,jnd.loc);
-					diff.normalize();
-					// weight by Coulomb's law
-					distance = PVector.dist(ind.loc,jnd.loc);
-					diff.mult( coulomb(distance) );
-					push.add(diff);
-				
-				}
-			}
-			
+						
 			// distances
 			float ldist = ind.loc.x - (ploc.x-rad);
 			float tdist = ind.loc.y - (ploc.y-rad);
@@ -967,7 +955,7 @@ class Landscape {
 		}
 
   	}
-  	
+  	  	
   	void reset() {
   	    ls = new ArrayList(); 
 		for (int i=0; i<D; i++) {
@@ -976,6 +964,9 @@ class Landscape {
   	}
   	
 	void run() {
+
+		repulsion();
+		update();	
 	
 		if (MIGRATION) { migstep(); }
 		
@@ -995,7 +986,17 @@ class Landscape {
 				pop.displayInd();
 			}	
 		}
-	} 	
+	} 
+	
+	void update() {
+		for (int k = 0; k < ls.size(); k++) {	
+			Population population = (Population) ls.get(k);		
+			for (int i = 0; i < population.size(); i++) {
+				Individual ind = (Individual) population.pop.get(i);  
+				ind.update(); 
+			}
+		}
+	}	
 		
 	void migrate(int i, int j) {
 	
@@ -1047,5 +1048,65 @@ class Landscape {
 			}
 		}
 	}
+	
+	void repulsion () {
+	
+		for (int paIndex = 0; paIndex < ls.size(); paIndex++) {	
+
+			Population populationA = (Population) ls.get(paIndex);		
+					
+			for (int iaIndex = 0; iaIndex < populationA.size(); iaIndex++) {
+					
+				Individual indA = (Individual) populationA.pop.get(iaIndex);
+				PVector push = new PVector(0,0);
+				float distance;
+				PVector diff;
+			
+				// repel from other Individuals
+				for (int pbIndex = 0; pbIndex < ls.size(); pbIndex++) {
+					Population populationB = (Population) ls.get(pbIndex);
+					
+					for (int ibIndex = 0 ; ibIndex < populationB.size(); ibIndex++) {
+					
+						if (paIndex == pbIndex) {
+					
+							if (iaIndex != ibIndex) {
+			
+								Individual indB = (Individual) populationB.pop.get(ibIndex);
+																	
+								// Calculate vector pointing away from neighbor
+								diff = PVector.sub(indA.loc,indB.loc);
+								diff.normalize();
+								// weight by Coulomb's law
+								distance = PVector.dist(indA.loc,indB.loc);
+								diff.mult( coulomb(distance) );
+								push.add(diff);
+				
+							}
+						
+						}
+						
+					}
+			
+				}
+															
+				// forces accelerate the individual			
+				indA.acc.add(push);
+			
+			}
+		}
+		
+  	}
+  		
+	float coulomb(float d) {
+		float force;
+		if (d > 0) {
+			force = sq(CHARGE) / sq(d);
+		}
+		else {
+			force = 10000;
+		}
+		return force;
+	}	
 	
 }
