@@ -89,7 +89,7 @@ void setup() {
 	SHOWIND = true;
 	BLENDING = true;
 	SHOWWORLD = true;
-	TRACING = true;	
+	TRACING = true;
 
 	CHARGE = 2.5; // 30
 	MAXVEL = 5.0; // 3.0 // 1800.0
@@ -261,15 +261,15 @@ void help() {
 	smooth();
 	textFont(fontN, 16);
 
-	float h = 190;
+	float h = 100;
 	float mod = 20;
 	text("H",10,h); text("-  show/hide keyboard commands",70,h); h += mod;
 	text("S",10,h); text("-  show/hide statistics and frame rate",70,h); h += mod;
 	text("SPACE",10,h); text("-  start/stop animation",70,h); h += mod;
 	text("D",10,h); text("-  start/stop population dynamics",70,h); h += mod;
 	text("M",10,h); text("-  start/stop migration",70,h); h += mod;
-	text("T",10,h); text("-  show/hide tracing",fromleft,h); h += mod;
-	text("2",10,h); text("-  switch between 1 and 2 dimensions",fromleft,h); h += mod;		
+	text("T",10,h); text("-  show/hide tracing",70,h); h += mod;
+	text("2",10,h); text("-  switch between 1 and 2 dimensions",70,h); h += mod;		
 	text("LEFT",10,h); text("-  decrease speed",70,h); h += mod;
 	text("RIGHT",10,h); text("-  increase speed",70,h); h += mod;
 	text("CLICK",10,h); text("-  start/stop blending",70,h); h += mod;	
@@ -368,17 +368,17 @@ void keyPressed() {
   	if (key == 't') {
 		if (TRACING) { TRACING = false; }
 		else if (!TRACING) { 
-			population.resetTrace();
+			landscape.resetTrace();
 			TRACING = true; 
 		}
   	}
   	if (key == '2') {
 		if (TWODIMEN) { 
-			population.resetTrace();
+			landscape.resetTrace();
 			TWODIMEN = false; 
 		}
 		else if (!TWODIMEN) { 
-			population.resetTrace();
+			landscape.resetTrace();
 			TWODIMEN = true; 
 		}
   	}   	
@@ -472,6 +472,12 @@ class Individual {
 		if (dying) { rad = rad - 0.4; }
 		
 		reset();
+		
+		// dynamically calculate TRACESTEP
+		TRACESTEP = int( (float)height / (float) (TRACEDEPTH * PUSHBACK) ) + 1;
+		if (frameCount % TRACESTEP == 0) {
+			extendTrace();
+		}		
 			
 	}
 	
@@ -510,11 +516,7 @@ class Individual {
     		if (!TWODIMEN) {
     			tl.y = tl.y - PUSHBACK;
     		}
-    		if (BRANCHCOLORING) { stroke(tl.z,90,100); }
-    		else {
-    			if (GRAYBG) { stroke(tl.z,0,100); }
-    			else { stroke(tl.z,0,0); }
-    		}
+    		stroke(tl.z,90,100);
     		line(tempx, tempy, tl.x, tl.y);
     		tempx = tl.x;
     		tempy = tl.y;
@@ -576,10 +578,6 @@ class Population {
 		return pop.size();
 	}
 	
-	Individual getIndividual(int index) {
-		return (Individual) pop[index];
-	}
-
 	void addIndividual(Individual ind) {
 		pop.add(ind);
 	}
@@ -669,6 +667,13 @@ class Population {
 		return baseline * (1 + eps*cos((TIMEOFYEAR+phase)*2*PI));
 	}
 	
+	void resetTrace() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			ind.resetTrace(); 
+		}
+	}	
+	
 	void cleanup() {
 		for (int i = 0; i < pop.size(); i++) {
 			Individual ind = (Individual) pop.get(i);  
@@ -688,6 +693,7 @@ class Population {
 		
 	void display() {
 		if (BORDERS) { displayBorder(); }
+		if (TRACING) { displayTrace(); }		
 		displayInd();
 	}
 	
@@ -704,6 +710,13 @@ class Population {
 			ind.displayInd(); 
 		}
 	}
+	
+	void displayTrace() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			ind.displayTrace(); 
+		}
+	}	
 	
 	void pushColor() {
 		for (int i = 0; i < pop.size(); i++) {
@@ -989,13 +1002,26 @@ class Landscape {
 				pop.displayBorder();
 			}
 		}
+		if (TRACING) {
+			for (int i = 0; i < ls.size(); i++) {
+				Population pop = (Population) ls.get(i);  
+				pop.displayTrace();
+			}	
+		}
 		if (SHOWIND) {
 			for (int i = 0; i < ls.size(); i++) {
 				Population pop = (Population) ls.get(i);  
 				pop.displayInd();
 			}	
 		}
-	} 
+	}
+	
+	void resetTrace() {
+		for (int i = 0; i < ls.size(); i++) {
+			Population pop = (Population) ls.get(i);  
+			pop.resetTrace();
+		}		
+	}
 	
 	void update() {
 		for (int k = 0; k < ls.size(); k++) {	
