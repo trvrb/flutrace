@@ -15,7 +15,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
 
 // TODO
-// periodic boundary conditions - debug
 // natural timescale
 //	measure parameters as per year
 //	conversion of frames per year
@@ -38,7 +37,6 @@ boolean STATISTICS;
 boolean HELP;
 boolean FRATE;
 boolean BORDERS;
-boolean PERIODIC;
 boolean SHOWTIME;
 boolean SHOWIND;
 boolean BLENDING;
@@ -49,6 +47,7 @@ float OUTLINE;
 float MULT;
 float BLENDINGCOL;
 float CARRYING_CAPICITY;
+float ONEDIMENRATIO;
 
 boolean TWODIMEN;
 int TRACEDEPTH;
@@ -84,12 +83,11 @@ void setup() {
 	HELP = false;
 	FRATE = false;
 	BORDERS = false;
-	PERIODIC = false;
 	SHOWTIME = true;
 	SHOWIND = true;
 	BLENDING = true;
 	SHOWWORLD = true;
-	TRACING = true;
+	TRACING = false;
 
 	CHARGE = 2.5; // 30
 	MAXVEL = 5.0; // 3.0 // 1800.0
@@ -103,16 +101,17 @@ void setup() {
 	BLENDINGCOL = 150;
 	TIMEOFYEAR = 0;	// on 0 to 1
 	
-	TRACEDEPTH = 20; // 300
-	TRACESTEP = 18; // 20
-	PUSHBACK = 0.75;	
+	TRACEDEPTH = 34; // 300
+	TRACESTEP = 25; // 20
+	PUSHBACK = 0.85;	
 	
 	MIG = 1;								// migration events per year
 	FRAMESPERYEAR = 800.0; // 1800.0		// provides timescale
 	
 	MULT = 6.0; // 8.0 // 30.0
 	GEN = (5.0*MULT) / 365.0;				// years per generation
-	CARRYING_CAPICITY = 0.6;	
+	CARRYING_CAPICITY = 0.6;
+	ONEDIMENRATIO = 0.35;	
 	
 	D = 7;
 	N = new int[D];
@@ -240,12 +239,13 @@ void setup() {
 }
 
 void draw() {
-	background(backgroundmap);
+	if (TWODIMEN) { background(backgroundmap); }
+	else { background(0,0,BG); }
 	landscape.run();
 	if (STATISTICS) { stats(); }
 	if (HELP) { help(); }
 	if (FRATE) { showFrameRate(); }
-	if (SHOWTIME) { timeOfYear(); }
+	if (SHOWTIME && TWODIMEN) { timeOfYear(); }
 	blendingDisplay();
 	setTimeOfYear();
 }
@@ -268,11 +268,11 @@ void help() {
 	text("SPACE",10,h); text("-  start/stop animation",70,h); h += mod;
 	text("D",10,h); text("-  start/stop population dynamics",70,h); h += mod;
 	text("M",10,h); text("-  start/stop migration",70,h); h += mod;
+	text("B",10,h); text("-  start/stop blending",70,h); h += mod;		
 	text("T",10,h); text("-  show/hide tracing",70,h); h += mod;
 	text("2",10,h); text("-  switch between 1 and 2 dimensions",70,h); h += mod;		
 	text("LEFT",10,h); text("-  decrease speed",70,h); h += mod;
 	text("RIGHT",10,h); text("-  increase speed",70,h); h += mod;
-	text("CLICK",10,h); text("-  start/stop blending",70,h); h += mod;	
 		
 	textFont(fontN, 12);
 	text("Copyright 2009-2012 Trevor Bedford",width-205,height-20);
@@ -327,7 +327,7 @@ void blendingDisplay() {
 	smooth();
 	textFont(fontN, 12);
 	if (BLENDING) {
-		text("blending on", width-75, 18);
+//		text("blending on", width-75, 18);
 	}
 	else {
 		text("blending off", width-75, 18);
@@ -337,17 +337,6 @@ void blendingDisplay() {
 		BLENDINGCOL = BLENDINGCOL - 3;
 	}
 
-}
-
-void mousePressed() {
-	if (BLENDING) { 
-		BLENDING = false; 
-		BLENDINGCOL = 150;
-	}
-	else if (!BLENDING) { 
-		BLENDING = true; 
-		BLENDINGCOL = 150;		
-	}
 }
 
 void keyPressed() {
@@ -361,6 +350,14 @@ void keyPressed() {
 			loop();
 		}
   	} 
+  	if (key == 'b') {
+		if (BLENDING) { 
+			BLENDING = false; 
+		}
+		else if (!BLENDING) { 
+			BLENDING = true; 	
+		}
+  	}
   	if (key == 'm') {
 		if (MIGRATION) { MIGRATION = false; }
 		else if (!MIGRATION) { MIGRATION = true; }
@@ -374,13 +371,16 @@ void keyPressed() {
   	}
   	if (key == '2') {
 		if (TWODIMEN) { 
-			landscape.resetTrace();
-			TWODIMEN = false; 
+			TWODIMEN = false;
+			CHARGE = CHARGE * 5;
+			GEN = GEN / 1;
 		}
 		else if (!TWODIMEN) { 
-			landscape.resetTrace();
-			TWODIMEN = true; 
+			TWODIMEN = true;
+			CHARGE = CHARGE / 5;			
+			GEN = GEN * 1;
 		}
+  		landscape.reset();		
   	}   	
   	if (key == 'd') {
 		if (DYNAMICS) { DYNAMICS = false; }
@@ -451,20 +451,58 @@ class Individual {
 		}
 
     	trace = new ArrayList();
-    	for (int i = 0; i < TRACEDEPTH; i++) {
-    		PVector tl = new PVector(loc.x,loc.y,hue);
-    		trace.add(tl);
-    	}    	
+    	if (TRACING) {
+			for (int i = 0; i < TRACEDEPTH; i++) {
+				PVector tl = new PVector(loc.x,loc.y,hue);
+				trace.add(tl);
+			}
+    	}
   		      	
 	}
+	
+	Individual(PVector l, float h, ArrayList array) {
+	
+		loc = l.get();
+    	vel = new PVector(0,0);
+    	acc = new PVector(0,0);
+    	rad = 0.001;
+    	growing = true;
+    	dying = false;
+    	hue = h;
+
+  		if (!TWODIMEN) {
+			loc.y = height-BASELINE;					// constrains to horizontal line	
+		}
+
+    	trace = new ArrayList();
+    	if (TRACING) {
+			for (int i = 0; i < array.size(); i++) {
+				PVector tl = (PVector) array.get(i);
+				float x = tl.x;
+				float y = tl.y;
+				float z = tl.z;
+				trace.add(new PVector(x,y,z));
+			}
+    	}
+  		      	
+	}	
 	    
 	void update() {
 	
 		vel.add(acc);          						// update velocity
-		vel.x = constrain(vel.x,-MAXVEL,MAXVEL);	// contrains speed
-		vel.y = constrain(vel.y,-MAXVEL,MAXVEL);
+		if (TWODIMEN) {
+			vel.x = constrain(vel.x,-MAXVEL,MAXVEL);	// contrains speed
+			vel.y = constrain(vel.y,-MAXVEL,MAXVEL);
+		}
+		else {
+			vel.x = constrain(vel.x,-0.5*MAXVEL,0.5*MAXVEL);	// contrains speed		
+		}
 		
 		loc.add(vel);          						// update location
+		
+		if (!TWODIMEN) {
+			loc.y = height-BASELINE;				// constrains to horizontal line	
+		}		
 		
 		if (growing) { rad = rad + 0.9; }
 		if (rad > 1.3*MAXRAD) { growing = false; }
@@ -473,11 +511,11 @@ class Individual {
 		
 		reset();
 		
-		// dynamically calculate TRACESTEP
-		TRACESTEP = int( (float)height / (float) (TRACEDEPTH * PUSHBACK) ) + 1;
-		if (frameCount % TRACESTEP == 0) {
-			extendTrace();
-		}		
+    	if (TRACING) {
+			if (frameCount % TRACESTEP == 0) {
+				extendTrace();
+			}	
+		}	
 			
 	}
 	
@@ -547,10 +585,17 @@ class Population {
   	
   	Population(PVector l, float r, float hu, int n, float e, float p) {
   	
+  		if (!TWODIMEN) {
+  			n = n * ONEDIMENRATIO;
+  		}
+  	
     	pop = new ArrayList(); 
     	for (int i=0; i < n; i++) {
     		float w = random(0,width);
     		float h = random(0,height);
+   			if (!TWODIMEN) {
+    			h = height-BASELINE;
+    		}    		
     		pop.add(new Individual(new PVector(w,h), hu));
     	}
     	
@@ -581,15 +626,31 @@ class Population {
 	void addIndividual(Individual ind) {
 		pop.add(ind);
 	}
+	
+	void reset() {
+		pop.clear();
+		n = baseline;
+  		if (!TWODIMEN) {
+  			n = n * ONEDIMENRATIO;
+  		}
+    	for (int i=0; i < n; i++) {
+    		float w = random(0,width);
+    		float h = random(0,height);
+   			if (!TWODIMEN) {
+    			h = height-BASELINE;
+    		}    		
+    		pop.add(new Individual(new PVector(w,h), hue));
+    	}
+	}
 
 	void replicate() {
 		if (pop.size() > 0) {
 			int rand = int(random(0,pop.size()));
 			Individual ind = (Individual) pop.get(rand);
-			if (PVector.dist(ind.loc, ploc) < 100) {
+			if (PVector.dist(ind.loc, ploc) < 100 || !TWODIMEN) {
 				float newx = ind.loc.x + random(-1,1);
 				float newy = ind.loc.y + random(-1,1);
-				pop.add(new Individual( new PVector(newx,newy), ind.hue));
+				pop.add(new Individual( new PVector(newx,newy), ind.hue, ind.trace));
 			}
 			
 		}
@@ -623,7 +684,7 @@ class Population {
 				rand = int(random(0,pop.size()));
 				ind = (Individual) pop.get(rand);
 			}
-			if (PVector.dist(ind.loc, ploc) < 100) {
+			if (PVector.dist(ind.loc, ploc) < 100 || !TWODIMEN) {
 				ind.dying = true;
 				ind.growing = false;
 			}
@@ -655,7 +716,7 @@ class Population {
 		}								
 		
 		// birth events
-		float popBirthRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize * (float) forcing() * mod;	// year / gen * frames per year = frames / gen
+		float popBirthRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize * mod;	// year / gen * frames per year = frames / gen
 		int events = poissonSample(popBirthRate);												
 		for (int i = 0; i < events; i++) {
 			replicate();
@@ -664,7 +725,11 @@ class Population {
 	}
 	
 	float targetSize() {
-		return baseline * (1 + eps*cos((TIMEOFYEAR+phase)*2*PI));
+		float target = baseline * (1 + eps*cos((TIMEOFYEAR+phase)*2*PI));
+		if (!TWODIMEN) {
+			target = target * ONEDIMENRATIO;
+		}
+		return target;
 	}
 	
 	void resetTrace() {
@@ -854,14 +919,20 @@ class Population {
 			PVector diff;
 						
 			// distances
-			float ldist = ind.loc.x - (ploc.x-rad);
-			float tdist = ind.loc.y - (ploc.y-rad);
-			float rdist = (ploc.x+rad) - ind.loc.x;
-			float bdist = (ploc.y+rad) - ind.loc.y;
-//			float aroundlrdist = ind.loc.x + (width - (ploc.x+rad));
-//			float aroundrldist = (width - ind.loc.x) + (ploc.x-rad);
-			float aroundlrdist = ind.loc.x + (width - ploc.x);
-			float aroundrldist = (width - ind.loc.x) + ploc.x;
+			float leftWall = 0;
+			float rightWall = width;
+			float topWall = 0;
+			float bottomWall = height;
+			if (TWODIMEN) {
+				leftWall = ploc.x-rad;
+				rightWall = ploc.x+rad;
+				topWall = ploc.y-rad;
+				bottomWall = ploc.y+rad;
+			}
+			float ldist = ind.loc.x - leftWall;
+			float tdist = ind.loc.y - topWall;
+			float rdist = rightWall - ind.loc.x;
+			float bdist = bottomWall - ind.loc.y;
 
 			// repel from top wall
 			diff = new PVector(0,1);
@@ -875,70 +946,42 @@ class Population {
 			diff.mult( PMULTIPLIER*coulomb(distance) );
 			push.add(diff);				
 			
-			if ( (ldist < aroundrldist + 50.0 && rdist < aroundlrdist + 50.0) || !PERIODIC) {
-			
-				// repel from left wall
-				diff = new PVector(1,0);
-				distance = ldist;
-				diff.mult( PMULTIPLIER*coulomb(distance) );
-				push.add(diff);
-		
-				// repel from top-left corner
-				diff = new PVector(1,1);
-				distance = sqrt( sq(tdist) + sq(ldist) );
-				diff.mult( 3*PMULTIPLIER*coulomb(distance) );
-				push.add(diff);
-				
-				// repel from top-right corner
-				diff = new PVector(-1,1);
-				distance = sqrt( sq(tdist) + sq(rdist) );
-				diff.mult( 3*PMULTIPLIER*coulomb(distance) );
-				push.add(diff);
-		
-				// repel from right wall
-				diff = new PVector(-1,0);
-				distance = rdist;
-				diff.mult( PMULTIPLIER*coulomb(distance) );
-				push.add(diff);
-		
-				// repel from bottom-right corner
-				diff = new PVector(-1,-1);
-				distance = sqrt( sq(bdist) + sq(rdist) );
-				diff.mult( 3*PMULTIPLIER*coulomb(distance) );
-				push.add(diff);
-									
-				// repel from bottom-left corner
-				diff = new PVector(1,-1);
-				distance = sqrt( sq(bdist) + sq(ldist) );
-				diff.mult( 3*PMULTIPLIER*coulomb(distance) );
-				push.add(diff);
-			
-			}
-			
-			if (PERIODIC) {
-			
-				if (ind.loc.x > ploc.x) {
-				
-					// repel from left wall
-					diff = new PVector(1,0);
-					distance = aroundrldist;
-					diff.mult( 100*PMULTIPLIER*coulomb(distance) );
-					push.add(diff);
-					
-				}
+			// repel from left wall
+			diff = new PVector(1,0);
+			distance = ldist;
+			diff.mult( PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
 	
-				if (ind.loc.x < ploc.x) {
-								
-					// repel from right wall
-					diff = new PVector(-1,0);
-					distance = aroundlrdist;
-					diff.mult( 100*PMULTIPLIER*coulomb(distance) );
-					push.add(diff);
-													
-				}			
+			// repel from top-left corner
+			diff = new PVector(1,1);
+			distance = sqrt( sq(tdist) + sq(ldist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
 			
-			}
-									
+			// repel from top-right corner
+			diff = new PVector(-1,1);
+			distance = sqrt( sq(tdist) + sq(rdist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+	
+			// repel from right wall
+			diff = new PVector(-1,0);
+			distance = rdist;
+			diff.mult( PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+	
+			// repel from bottom-right corner
+			diff = new PVector(-1,-1);
+			distance = sqrt( sq(bdist) + sq(rdist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+								
+			// repel from bottom-left corner
+			diff = new PVector(1,-1);
+			distance = sqrt( sq(bdist) + sq(ldist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+										
 			// forces accelerate the individual			
 			ind.acc.add(push);
 			
@@ -978,12 +1021,12 @@ class Landscape {
 
   	}
   	  	
-  	void reset() {
-  	    ls = new ArrayList(); 
-		for (int i=0; i<D; i++) {
-			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, H[i], N[i], EPS[i], PHASE[i] ));
+	void reset() {
+		for (int i = 0; i < ls.size(); i++) {
+			Population pop = (Population) ls.get(i);  
+			pop.reset();  	   
 		}
-  	}
+	}
   	
 	void run() {
 
@@ -1049,7 +1092,7 @@ class Landscape {
 				rand = int(random(0,pop.size()));
 				ind = (Individual) pop.pop.get(rand);
 			}
-			Individual cind = new Individual(ind.loc, ind.hue);
+			Individual cind = new Individual(ind.loc, ind.hue, ind.trace);
 			pop.die(rand);
 			
 			// replicate another random individual, this keeps the population size constant
@@ -1099,8 +1142,8 @@ class Landscape {
 			
 				// repel from other Individuals
 				for (int pbIndex = 0; pbIndex < ls.size(); pbIndex++) {
-				
-					if (paIndex == pbIndex) {
+								
+					if (paIndex == pbIndex || !TWODIMEN) {
 				
 						Population populationB = (Population) ls.get(pbIndex);
 					
