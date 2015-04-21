@@ -1,0 +1,1177 @@
+// SCTRACE
+// Copyright 2009-2015 Trevor Bedford
+
+/*	This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.*/
+
+// TODO
+// natural timescale
+//	measure parameters as per year
+//	conversion of frames per year
+
+float CHARGE;
+float MAXVEL;
+float MAXRAD;
+float BASELINE;
+float WALLMULTIPLIER;
+float PMULTIPLIER;
+float BLEND;
+float GEN;
+float MIG;
+float FRAMESPERYEAR;
+float INDHUE;
+boolean LOOPING;
+boolean MIGRATION;
+boolean DYNAMICS;
+boolean STATISTICS;
+boolean HELP;
+boolean FRATE;
+boolean BORDERS;
+boolean SHOWTIME;
+boolean SHOWIND;
+boolean SHOWWORLD;
+boolean TRACING;
+float BG;
+float OUTLINE;
+float MULT;
+float CARRYING_CAPICITY;
+float ONEDIMENRATIO;
+float MU;
+
+boolean TWODIMEN;
+int TRACEDEPTH;
+int TRACESTEP;
+float PUSHBACK;
+
+int D;
+int[] N;
+float[] H;
+float[] XLOC;
+float[] YLOC;
+float[][] M;	// migration matrix
+float[] EPS;	// seasonal forcing magnitude
+float[] PHASE;	// seasonal forcing phase
+
+Landscape landscape;
+PFont fontN;
+PFont fontI;
+PImage backgroundmap;
+
+void setup() {
+
+	size(1920, 700); // 1000, 328 // 1000,500 // 800,500
+			
+	colorMode(HSB,100);
+	rectMode(CENTER);
+	smooth();
+
+	TWODIMEN = true;
+	MIGRATION = true;
+	DYNAMICS = true;
+	STATISTICS = false;
+	HELP = false;
+	FRATE = false;
+	BORDERS = false;
+	SHOWTIME = true;
+	SHOWIND = true;
+	SHOWWORLD = true;
+	TRACING = false;
+
+	CHARGE = 2.5; // 30
+	MAXVEL = 6.0; // 3.0 // 1800.0
+	MAXRAD = 5; // 6
+	BASELINE = 25;
+	WALLMULTIPLIER = 20;
+	PMULTIPLIER = 10; // 10 // 30
+	BLEND = 0.5; // 0.5
+	BG = 20;
+	OUTLINE = 100;
+	TIMEOFYEAR = 0;	// on 0 to 1
+	
+	TRACEDEPTH = 34; // 300
+	TRACESTEP = 25; // 20
+	PUSHBACK = 0.85;	
+	
+	MIG = 1;								// migration events per year
+	FRAMESPERYEAR = 800.0; // 1800.0		// provides timescale
+	
+	MULT = 7.0; // 8.0 // 30.0
+	GEN = (5.0*MULT) / 365.0;				// years per generation
+	CARRYING_CAPICITY = 0.6;
+	ONEDIMENRATIO = 0.35;
+	MU = 0.05;
+	
+	D = 7;
+	N = new int[D];
+	N[0] = int(330 / MULT);		// China: 1200 million
+	N[1] = int(220 / MULT);		// Europe: 500 million
+	N[2] = int(110 / MULT);		// Japan: 130 million
+	N[3] = int(60 / MULT);		// Oceania: 30 million
+	N[4] = int(220 / MULT);		// South America: 500 million
+	N[5] = int(220 / MULT);		// Southeast Asia: 500 million
+	N[6] = int(170 / MULT);		// USA: 300 million
+	
+	EPS = new int[D];
+	EPS[0] = 0.0;		// China
+	EPS[1] = 0.5;		// Europe
+	EPS[2] = 0.5;		// Japan
+	EPS[3] = 0.5;		// Oceania
+	EPS[4] = 0.5;		// South America
+	EPS[5] = 0.0;		// Southeast Asia
+	EPS[6] = 0.5;		// USA
+	
+	PHASE = new int[D];
+	PHASE[0] = 0.0;		// China
+	PHASE[1] = 0.0;		// Europe
+	PHASE[2] = 0.0;		// Japan
+	PHASE[3] = 0.5;		// Oceania
+	PHASE[4] = 0.5;		// South America
+	PHASE[5] = 0.0;		// Southeast Asia
+	PHASE[6] = 0.0;		// USA	
+	
+	H = new float[D];
+	H[0] = 0;
+	H[1] = 70;
+	H[2] = 28;
+	H[3] = 42;
+	H[4] = 56;
+	H[5] = 14;
+	H[6] = 84;
+	
+	XLOC = new float[D];
+	XLOC[0] = 112;		// China
+	XLOC[1] = 7;		// Europe
+	XLOC[2] = 142;		// Japan
+	XLOC[3] = 145;		// Oceania
+	XLOC[4] = 310;		// South America
+	XLOC[5] = 116;		// Southeast Asia
+	XLOC[6] = 265;		// USA
+	for (int i=0; i<D; i++) { XLOC[i] = (XLOC[i] + 25) * (width/360.0); }
+	
+	YLOC = new float[D];
+	YLOC[0] = -35;		// China
+	YLOC[1] = -52;		// Europe
+	YLOC[2] = -42;		// Japan
+	YLOC[3] = 15;		// Oceania
+	YLOC[4] = 3;		// South America
+	YLOC[5] = -10;		// Southeast Asia
+	YLOC[6] = -44;		// USA
+	for (int i=0; i<D; i++) { YLOC[i] = (YLOC[i] + 68) * (height/118.0); }
+	
+	M = new float[D][D];
+	
+	M[0][0] = 0.0;
+	M[0][1] = 0.07;
+	M[0][2] = 0.29;
+	M[0][3] = 0.15;
+	M[0][4] = 0.06;
+	M[0][5] = 0.30;
+	M[0][6] = 0.25;
+
+	M[1][0] = 0.06;
+	M[1][1] = 0;
+	M[1][2] = 0.06;
+	M[1][3] = 0.16;
+	M[1][4] = 0.08;
+	M[1][5] = 0.11;
+	M[1][6] = 0.12;
+
+	M[2][0] = 0.10;
+	M[2][1] = 0.07;
+	M[2][2] = 0;
+	M[2][3] = 0.13;
+	M[2][4] = 0.04;
+	M[2][5] = 0.10;
+	M[2][6] = 0.06;
+	
+	M[3][0] = 0.06;
+	M[3][1] = 0.13;
+	M[3][2] = 0.07;
+	M[3][3] = 0;
+	M[3][4] = 0.03;
+	M[3][5] = 0.10;
+	M[3][6] = 0.16;		
+
+	M[4][0] = 0.04;
+	M[4][1] = 0.05;
+	M[4][2] = 0.04;
+	M[4][3] = 0.08;
+	M[4][4] = 0;
+	M[4][5] = 0.04;
+	M[4][6] = 0.05;	
+			
+	M[5][0] = 0.27;
+	M[5][1] = 0.14;
+	M[5][2] = 0.13;
+	M[5][3] = 0.23;
+	M[5][4] = 0.03;
+	M[5][5] = 0;
+	M[5][6] = 0.11;
+	
+	M[6][0] = 0.19;
+	M[6][1] = 0.25;
+	M[6][2] = 0.19;
+	M[6][3] = 0.31;
+	M[6][4] = 0.22;
+	M[6][5] = 0.20;
+	M[6][6] = 0;	
+	
+	INDHUE = 95;
+	LOOPING = true;
+	frameRate(30);	
+	
+	fontN = loadFont("GillSans-48.vlw");	
+	strokeWeight(2);		
+	landscape = new Landscape();
+	/* @pjs preload="map.png"; */
+	backgroundmap = loadImage("map.png");
+	
+}
+
+void draw() {
+	if (TWODIMEN) { background(backgroundmap); }
+	else { background(0,0,BG); }
+	landscape.run();
+	if (STATISTICS) { stats(); }
+	if (HELP) { help(); }
+	if (FRATE) { showFrameRate(); }
+	if (SHOWTIME && TWODIMEN) { timeOfYear(); }
+	setTimeOfYear();
+}
+
+void setTimeOfYear() {
+	TIMEOFYEAR = (frameCount % int(FRAMESPERYEAR)) / width;
+}
+
+void help() {
+	
+	fill(0,0,OUTLINE);
+	stroke(0,0,OUTLINE);
+	smooth();
+	textFont(fontN, 16);
+
+	float h = 100;
+	float mod = 20;
+	text("H",10,h); text("-  show/hide keyboard commands",70,h); h += mod;
+	text("S",10,h); text("-  show/hide statistics and frame rate",70,h); h += mod;
+	text("SPACE",10,h); text("-  start/stop animation",70,h); h += mod;
+	text("D",10,h); text("-  start/stop population dynamics",70,h); h += mod;
+	text("M",10,h); text("-  start/stop migration",70,h); h += mod;	
+	text("T",10,h); text("-  show/hide tracing",70,h); h += mod;
+	text("2",10,h); text("-  switch between 1 and 2 dimensions",70,h); h += mod;		
+	text("LEFT",10,h); text("-  decrease speed",70,h); h += mod;
+	text("RIGHT",10,h); text("-  increase speed",70,h); h += mod;
+		
+	textFont(fontN, 12);
+	text("Copyright 2009-2012 Trevor Bedford",width-205,height-20);
+	
+}
+
+void stats() {
+
+	fill(0,0,OUTLINE);
+	stroke(0,0,OUTLINE);
+	textFont(fontN, 16);
+
+	// timescale
+	int rate = int(FRAMESPERYEAR);
+	text(rate + " frames / year", 10, 25);	
+
+	// generation time
+	if (DYNAMICS) {
+		float grate = round(GEN*100)/100.0;
+		text(grate + " years / gen", 10, 45);
+	}
+	
+	// frame rate
+	int fps = int(frameRate);
+	text(fps + " frames / sec", 10, 65);
+			
+}
+
+void timeOfYear() {
+	
+	fill(0,0,35);
+	stroke(0,0,35);
+	line(0, height-30, width, height-30);
+	stroke(0,0,OUTLINE);
+	float xval = TIMEOFYEAR * width;
+	line(xval, height-25, xval, height-35);
+	
+	textFont(fontN, 16);
+	fill(0,0,OUTLINE);
+	months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+	interval = (float) width / 12.0;
+	for (int i=0; i < months.length(); i++) {
+		text(months[i], i * interval + 10, height-10);
+	}
+	
+}
+
+void keyPressed() {
+	if (key == ' ') {
+		if (LOOPING) {
+			LOOPING = false;
+			noLoop();
+		}
+		else if (!LOOPING) {
+			LOOPING = true;
+			loop();
+		}
+  	} 
+  	if (key == 'm') {
+		if (MIGRATION) { MIGRATION = false; }
+		else if (!MIGRATION) { MIGRATION = true; }
+  	}
+  	if (key == 't') {
+		if (TRACING) { TRACING = false; }
+		else if (!TRACING) { 
+			landscape.resetTrace();
+			TRACING = true; 
+		}
+  	}
+  	if (key == '2') {
+		if (TWODIMEN) { 
+			TWODIMEN = false;
+			CHARGE = CHARGE * 5;
+			GEN = GEN / 1;
+		}
+		else if (!TWODIMEN) { 
+			TWODIMEN = true;
+			CHARGE = CHARGE / 5;			
+			GEN = GEN * 1;
+		}
+  		landscape.reset();		
+  	}   	
+  	if (key == 'd') {
+		if (DYNAMICS) { DYNAMICS = false; }
+		else if (!DYNAMICS) { DYNAMICS = true; }
+  	}  	
+  	if (key == 's') {
+		if (STATISTICS) { STATISTICS = false; }
+		else if (!STATISTICS) { STATISTICS = true; }
+  	}    
+  	if (key == 'h') {
+		if (HELP) { HELP = false; }
+		else if (!HELP) { HELP = true; }
+  	}      			
+	if (keyCode == LEFT) { 
+		FRAMESPERYEAR += 20.0;
+  	}  
+	if (keyCode == RIGHT && FRAMESPERYEAR > 100) { 
+		FRAMESPERYEAR -= 20.0;
+  	}  	   	
+}
+
+int poissonSample(float lambda) {
+	float t = exp(-1*lambda);
+	int k = 0;
+	float p = 1;
+	while (p > t) {
+		k++;
+		p *= random(0,1);
+	}
+	return k - 1;
+}
+
+
+// converts years to pixels
+float timeInterval(float y) {
+
+	// converting from years to frames
+	float frames = y * FRAMESPERYEAR;
+	// converting from frames to pixels
+	float pixels = frames * PUSHBACK;
+	return pixels;
+	
+}
+
+class Individual {
+
+	PVector loc;
+	PVector vel;
+	PVector acc;
+	float rad;
+	boolean growing;
+	boolean dying;
+	float hue;
+	ArrayList trace;	
+
+	Individual(PVector l) {
+	
+		loc = l.get();
+    	vel = new PVector(0,0);
+    	acc = new PVector(0,0);
+    	rad = 0.001;
+    	growing = true;
+    	dying = false;
+    	hue = INDHUE;
+
+  		if (!TWODIMEN) {
+			loc.y = height-BASELINE;					// constrains to horizontal line	
+		}
+
+    	trace = new ArrayList();
+    	if (TRACING) {
+			for (int i = 0; i < TRACEDEPTH; i++) {
+				PVector tl = new PVector(loc.x,loc.y,hue);
+				trace.add(tl);
+			}
+    	}
+  		      	
+	}
+	
+	Individual(PVector l, float h, ArrayList array) {
+	
+		loc = l.get();
+    	vel = new PVector(0,0);
+    	acc = new PVector(0,0);
+    	rad = 0.001;
+    	growing = true;
+    	dying = false;
+    	hue = h;
+
+  		if (!TWODIMEN) {
+			loc.y = height-BASELINE;					// constrains to horizontal line	
+		}
+
+    	trace = new ArrayList();
+    	if (TRACING) {
+			for (int i = 0; i < array.size(); i++) {
+				PVector tl = (PVector) array.get(i);
+				float x = tl.x;
+				float y = tl.y;
+				float z = tl.z;
+				trace.add(new PVector(x,y,z));
+			}
+    	}
+  		      	
+	}	
+	    
+	void update() {
+	
+		vel.add(acc);          						// update velocity
+		if (TWODIMEN) {
+			vel.x = constrain(vel.x,-MAXVEL,MAXVEL);	// contrains speed
+			vel.y = constrain(vel.y,-MAXVEL,MAXVEL);
+		}
+		else {
+			vel.x = constrain(vel.x,-0.5*MAXVEL,0.5*MAXVEL);	// contrains speed		
+		}
+		
+		loc.add(vel);          						// update location
+		
+		if (!TWODIMEN) {
+			loc.y = height-BASELINE;				// constrains to horizontal line	
+		}		
+		
+		if (growing) { rad = rad + 0.9; }
+		if (rad > 1.3*MAXRAD) { growing = false; }
+		if (rad > MAXRAD) { rad = rad - 0.4; }
+		if (dying) { rad = rad - 0.4; }
+		
+		reset();
+		
+    	if (TRACING) {
+			if (frameCount % TRACESTEP == 0) {
+				extendTrace();
+			}	
+		}	
+			
+	}
+	
+	void reset() {
+		vel = new PVector(0,0);
+		acc = new PVector(0,0);
+	}
+
+	void extendTrace() {
+    	PVector tl = new PVector(loc.x,loc.y,hue);
+    	trace.add(tl);
+    	trace.remove(0);
+	}
+
+	void resetTrace() {
+	    trace = new ArrayList();
+    	for (int i = 0; i < TRACEDEPTH; i++) {
+    		PVector tl = new PVector(loc.x,loc.y,hue);
+    		trace.add(tl);
+    	}
+	}
+	
+	void mutate() {
+		hue = random(0,100);
+	}	
+		  
+	void display() {
+    	if (TRACING) { displayTrace(); }	
+		displayInd();	
+  	}
+
+  	void displayTrace() {
+  	    // draw tail on each individual
+  	    // this is counting down from the tail of the trace
+    	float tempx = loc.x;
+    	float tempy = loc.y;
+    	float temph = hue;
+    	for (int i = TRACEDEPTH - 1; i > 0; i--) {
+   			PVector tl = (PVector) trace.get(i);
+    		if (!TWODIMEN) {
+    			tl.y = tl.y - PUSHBACK;
+    		}
+    		stroke(tl.z,90,100);
+    		line(tempx, tempy, tl.x, tl.y);
+    		tempx = tl.x;
+    		tempy = tl.y;
+    	}
+  	}
+
+  	void displayInd() {
+  	    // draw a circle for each individual
+		fill(hue,90,100); // 223,227,197		
+    	stroke(0,0,OUTLINE);
+    	ellipse(loc.x, loc.y, rad*2, rad*2);
+  	}
+  	
+}
+
+// The Population (a list of Individual objects)
+
+class Population {
+  
+  	ArrayList pop; 	// An arraylist for all the individuals
+  	PVector ploc; 	// location of population center
+  	float rad; 		// radius of population
+  	float hue;
+	float[] em;
+	float baseline;	// avg population size
+	float eps;		// magnitude of seasonal forcing
+	float phase;	// phase of seasonal forcing
+  	
+  	Population(PVector l, float r, float hu, int n, float e, float p) {
+  	
+  		if (!TWODIMEN) {
+  			n = n * ONEDIMENRATIO;
+  		}
+  	
+    	pop = new ArrayList(); 
+    	for (int i=0; i < n; i++) {
+    		float w = random(0,width);
+    		float h = random(0,height);
+   			if (!TWODIMEN) {
+    			h = height-BASELINE;
+    		}    		
+    		pop.add(new Individual(new PVector(w,h)));
+    	}
+    	
+		ploc = l;
+		rad = r;
+		hue = hu;
+		
+		baseline = n;
+		eps = e;
+		phase = p;
+		
+  	}  	
+
+	void run() {
+		if (DYNAMICS) { splitstep(); }
+		mutate();		
+		repulsion();
+		update();
+		reflection();
+		cleanup();
+		// display functions in landscape to properly layer drawing
+	}
+	
+	int size() {
+		return pop.size();
+	}
+	
+	void addIndividual(Individual ind) {
+		pop.add(ind);
+	}
+	
+	void reset() {
+		pop.clear();
+		n = baseline;
+  		if (!TWODIMEN) {
+  			n = n * ONEDIMENRATIO;
+  		}
+    	for (int i=0; i < n; i++) {
+    		float w = random(0,width);
+    		float h = random(0,height);
+   			if (!TWODIMEN) {
+    			h = height-BASELINE;
+    		}    		
+    		pop.add(new Individual(new PVector(w,h)));
+    	}
+	}
+
+	void replicate() {
+		if (pop.size() > 0) {
+			int rand = int(random(0,pop.size()));
+			Individual ind = (Individual) pop.get(rand);
+			if (PVector.dist(ind.loc, ploc) < 100 || !TWODIMEN) {
+				float newx = ind.loc.x + random(-1,1);
+				float newy = ind.loc.y + random(-1,1);
+				pop.add(new Individual( new PVector(newx,newy), ind.hue, ind.trace));
+			}
+			
+		}
+		else {
+			float w = width/2 + random(-1,1);
+			float h = height/2 + random(-1,1);
+			pop.add(new Individual(new PVector(w,h)));
+		}
+		
+	}
+	
+	boolean living() {
+	
+		int livecount = 0;
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i); 
+			if (!ind.dying) {
+				livecount++;
+			}
+		}
+		if (livecount > 0) { return true; }
+		else { return false; }
+	
+	}
+	
+	boolean die() {					// return true if successful
+		if (living()) {
+			int rand = int(random(0,pop.size()));
+			Individual ind = (Individual) pop.get(rand);
+			while (ind.dying) {									// pick another
+				rand = int(random(0,pop.size()));
+				ind = (Individual) pop.get(rand);
+			}
+			if (PVector.dist(ind.loc, ploc) < 100 || !TWODIMEN) {
+				ind.dying = true;
+				ind.growing = false;
+			}
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+	
+	boolean die(int i) {								// return true if successful
+		Individual ind = (Individual) pop.get(i);
+		ind.dying = true;
+		ind.growing = false;
+		return true;
+	}	
+	
+	void splitstep() {													// called once per frame
+
+		float popsize = (float) size();
+		float target = targetSize();
+		float mod = 1 - CARRYING_CAPICITY * ((popsize - target)/target);
+
+		// death events
+		float popDeathRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize;		// year / gen * frames per year = frames / gen
+		int events = poissonSample(popDeathRate);
+		for (int i = 0; i < events; i++) {
+			die();
+		}								
+		
+		// birth events
+		float popBirthRate = (1 / (GEN * FRAMESPERYEAR) ) * popsize * mod;	// year / gen * frames per year = frames / gen
+		int events = poissonSample(popBirthRate);												
+		for (int i = 0; i < events; i++) {
+			replicate();
+		}
+
+	}
+	
+	float targetSize() {
+		float target = baseline * (1 + eps*cos((TIMEOFYEAR+phase)*2*PI));
+		if (!TWODIMEN) {
+			target = target * ONEDIMENRATIO;
+		}
+		return target;
+	}
+	
+	void mutate() {
+		float popsize = (float) size();	
+		float popMu = (1 / (GEN * FRAMESPERYEAR) ) * popsize * MU;
+		int events = poissonSample(popMu);
+		for (int i = 0; i < events; i++) {
+			int rand = int(random(0,pop.size()));
+			Individual ind = (Individual) pop.get(rand);
+			ind.mutate();
+		}
+	}	
+	
+	void resetTrace() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			ind.resetTrace(); 
+		}
+	}	
+	
+	void cleanup() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			if (ind.rad < 0) { 
+				pop.remove(i);
+				i = 0;
+			}
+		}
+	}
+
+	void update() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			ind.update(); 
+		}
+	}
+		
+	void display() {
+		if (BORDERS) { displayBorder(); }
+		if (TRACING) { displayTrace(); }		
+		displayInd();
+	}
+	
+	void displayBorder() {
+		// draw a circle for the population in 2d or a strip in 1d
+		fill(0,0,35,50);
+		noStroke();
+		ellipse(ploc.x, ploc.y, rad*2, rad*2);
+	}
+		
+	void displayInd() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			ind.displayInd(); 
+		}
+	}
+	
+	void displayTrace() {
+		for (int i = 0; i < pop.size(); i++) {
+			Individual ind = (Individual) pop.get(i);  
+			ind.displayTrace(); 
+		}
+	}	
+	
+	void pushColor() {
+		for (int i = 0; i < pop.size(); i++) {
+		
+			Individual ind = (Individual) pop.get(i); 
+			ind.hue = hue;
+			
+			/*
+			color fromcolor = color(ind.hue,90,100);
+			color tocolor = color(hue,90,100);						
+			
+			colorMode(RGB,1.0);				// temporarily switch to RGB color mode
+			
+			float ir = red(fromcolor);
+			float pr = red(tocolor);			
+			if (ir < pr - BLEND) { ir += BLEND; }
+			else if (ir > pr + BLEND) { ir -= BLEND; }
+			else { ir = pr; }
+
+			float ig = green(fromcolor);
+			float pg = green(tocolor);
+			if (ig < pg - BLEND) { ig += BLEND; }
+			else if (ig > pg + BLEND) { ig -= BLEND; }
+			else { ig = pg; }			
+			
+			float ib = blue(fromcolor);
+			float pb = blue(tocolor);	
+			if (ib < pb - BLEND) { ib += BLEND; }
+			else if (ib > pb + BLEND) { ib -= BLEND; }
+			else { ib = pb; }
+				
+			colorMode(HSB,100);				// temporarily switch to RGB color mode			
+
+			float max = 1;
+			if (ir >= ig && ir >= ib) {
+				max = ir;
+			}
+			if (ig >= ir && ig >= ib) {
+				max = ig;
+			}
+			if (ib >= ir && ib >= ig) {
+				max = ib;
+			}
+			float min = 0;
+			if (ir <= ig && ir <= ib) {
+				min = ir;
+			}
+			if (ig <= ir && ig <= ib) {
+				min = ig;
+			}
+			if (ib <= ir && ib <= ig) {
+				min = ib;
+			}							
+			float denom = (max-min);
+			
+			float newhue = 0;			
+			if (ir >= ig && ir >= ib) {
+				newhue = (ig-ib) / denom;
+			}
+			if (ig >= ir && ig >= ib) {
+				newhue = 2.0 + (ib-ir) / denom;
+			}
+			if (ib >= ir && ib >= ig) {
+				newhue = 4.0 + (ir-ig) / denom;
+			}						
+ 
+			ind.hue = 16.666*newhue; */
+			
+		
+		}	
+	}
+	
+	// currently off
+	void exclusion () {
+		
+		for (int i = 0 ; i < pop.size(); i++) {
+		
+			Individual ind = (Individual) pop.get(i);
+			
+			// exclude from other individuals
+			for (int j = 0 ; j < pop.size(); j++) {
+				if (i != j) {
+					Individual jnd = (Individual) pop.get(j);
+					float overlap = ind.rad + jnd.rad - PVector.dist(ind.loc,jnd.loc);
+					if (overlap > 0) {
+					
+						PVector push = new PVector(0,0);
+						float distance;
+						PVector diff;
+						
+						diff = PVector.sub(ind.loc,jnd.loc);
+						diff.normalize();
+						diff.mult( overlap );
+						ind.loc.add(diff);
+					
+					}
+				}
+			}
+					
+			// exclude from walls	
+			ind.loc.x = constrain(ind.loc.x, ploc.x - rad, ploc.x + rad);
+			ind.loc.y = constrain(ind.loc.y, ploc.y - rad, ploc.y + rad);
+
+					
+		}
+		
+  	}
+
+	void reflection() {
+	
+		for (int i = 0 ; i < pop.size(); i++) {
+		
+			Individual ind = (Individual) pop.get(i);
+					
+			// reflect along the x-axis
+			if (ind.loc.x < 0) { 
+				ind.loc.x = width + ind.loc.x; 
+			}
+			if (ind.loc.x > width) {
+				ind.loc.x = ind.loc.x - width;
+			}
+
+					
+		}
+	
+	}
+
+	void repulsion () {
+		
+		for (int i = 0 ; i < pop.size(); i++) {
+		
+			Individual ind = (Individual) pop.get(i);
+			PVector push = new PVector(0,0);
+			float distance;
+			PVector diff;
+						
+			// distances
+			float leftWall = 0;
+			float rightWall = width;
+			float topWall = 0;
+			float bottomWall = height;
+			if (TWODIMEN) {
+				leftWall = ploc.x-rad;
+				rightWall = ploc.x+rad;
+				topWall = ploc.y-rad;
+				bottomWall = ploc.y+rad;
+			}
+			float ldist = ind.loc.x - leftWall;
+			float tdist = ind.loc.y - topWall;
+			float rdist = rightWall - ind.loc.x;
+			float bdist = bottomWall - ind.loc.y;
+
+			// repel from top wall
+			diff = new PVector(0,1);
+			distance = tdist;
+			diff.mult( PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+			
+			// repel from bottom wall
+			diff = new PVector(0,-1);
+			distance = bdist;
+			diff.mult( PMULTIPLIER*coulomb(distance) );
+			push.add(diff);				
+			
+			// repel from left wall
+			diff = new PVector(1,0);
+			distance = ldist;
+			diff.mult( PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+	
+			// repel from top-left corner
+			diff = new PVector(1,1);
+			distance = sqrt( sq(tdist) + sq(ldist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+			
+			// repel from top-right corner
+			diff = new PVector(-1,1);
+			distance = sqrt( sq(tdist) + sq(rdist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+	
+			// repel from right wall
+			diff = new PVector(-1,0);
+			distance = rdist;
+			diff.mult( PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+	
+			// repel from bottom-right corner
+			diff = new PVector(-1,-1);
+			distance = sqrt( sq(bdist) + sq(rdist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+								
+			// repel from bottom-left corner
+			diff = new PVector(1,-1);
+			distance = sqrt( sq(bdist) + sq(ldist) );
+			diff.mult( 3*PMULTIPLIER*coulomb(distance) );
+			push.add(diff);
+										
+			// forces accelerate the individual			
+			ind.acc.add(push);
+			
+		}
+		
+  	}
+  		
+	float coulomb(float d) {
+		float force;
+		if (d > 0) {
+			force = sq(CHARGE) / sq(d);
+		}
+		else {
+			force = 10000;
+		}
+		return force;
+	}
+	
+	float forcing() {
+		return (1+eps*cos((TIMEOFYEAR+phase)*2*PI));
+	}	
+	
+}
+
+// The Landscape (a list of Population objects)
+
+class Landscape {
+
+  	ArrayList ls; // An arraylist for all the populations
+  	
+	Landscape() {
+    	ls = new ArrayList(); 
+
+		for (int i=0; i<D; i++) {
+			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 70, H[i], N[i], EPS[i], PHASE[i] ));
+		}
+
+  	}
+  	  	
+	void reset() {
+		for (int i = 0; i < ls.size(); i++) {
+			Population pop = (Population) ls.get(i);  
+			pop.reset();  	   
+		}
+	}
+  	
+	void run() {
+
+		repulsion();
+		update();	
+	
+		if (MIGRATION) { migstep(); }
+		
+		for (int i = 0; i < ls.size(); i++) {
+			Population pop = (Population) ls.get(i);  
+			pop.run();
+		}
+		if (BORDERS) {
+			for (int i = 0; i < ls.size(); i++) {
+				Population pop = (Population) ls.get(i);  
+				pop.displayBorder();
+			}
+		}
+		if (TRACING) {
+			for (int i = 0; i < ls.size(); i++) {
+				Population pop = (Population) ls.get(i);  
+				pop.displayTrace();
+			}	
+		}
+		if (SHOWIND) {
+			for (int i = 0; i < ls.size(); i++) {
+				Population pop = (Population) ls.get(i);  
+				pop.displayInd();
+			}	
+		}
+	}
+	
+	void resetTrace() {
+		for (int i = 0; i < ls.size(); i++) {
+			Population pop = (Population) ls.get(i);  
+			pop.resetTrace();
+		}		
+	}
+	
+	void update() {
+		for (int k = 0; k < ls.size(); k++) {	
+			Population population = (Population) ls.get(k);		
+			for (int i = 0; i < population.size(); i++) {
+				Individual ind = (Individual) population.pop.get(i);  
+				ind.update(); 
+			}
+		}
+	}	
+		
+	void migrate(int i, int j) {
+	
+		// population i
+		Population pop = (Population) ls.get(i);
+		
+		// check to see that there are alive individuals
+		if (pop.living()) {
+		
+			// get a random individual in i and copy it, kill the original
+			// check to seeing if dying first
+			int rand = int(random(0,pop.size()));
+			Individual ind = (Individual) pop.pop.get(rand);
+			while (ind.dying) {									// pick another
+				rand = int(random(0,pop.size()));
+				ind = (Individual) pop.pop.get(rand);
+			}
+			Individual cind = new Individual(ind.loc, ind.hue, ind.trace);
+			pop.die(rand);
+			
+			// replicate another random individual, this keeps the population size constant
+			pop.replicate();
+			
+			// population j
+			pop = (Population) ls.get(j);
+			
+			// kill random individual in j
+			pop.die();
+			
+			// add copied individual to j
+			pop.addIndividual(cind);
+		
+		}
+	
+	}
+		
+	void migstep() {
+		for (int i = 0; i < ls.size(); i++) {						// from population
+			for (int j = 0; j < ls.size(); j++) {					// to population		
+			
+				Population pop = (Population) ls.get(i);
+				int size = pop.size();
+				float popMig = (float) size * M[i][j] / FRAMESPERYEAR;		// mig per year / frames per year = mig per frames
+				int events = poissonSample(popMig);
+				for (int k=0; k<events; k++) {
+					migrate(i,j);
+				}
+			
+			}
+		}
+	}
+	
+	void repulsion () {
+	
+		for (int paIndex = 0; paIndex < ls.size(); paIndex++) {	
+
+			Population populationA = (Population) ls.get(paIndex);		
+					
+			for (int iaIndex = 0; iaIndex < populationA.size(); iaIndex++) {
+					
+				Individual indA = (Individual) populationA.pop.get(iaIndex);
+				PVector push = new PVector(0,0);
+				float distance;
+				PVector diff;
+			
+				// repel from other Individuals
+				for (int pbIndex = 0; pbIndex < ls.size(); pbIndex++) {
+								
+					if (paIndex == pbIndex || !TWODIMEN) {
+				
+						Population populationB = (Population) ls.get(pbIndex);
+					
+						for (int ibIndex = 0 ; ibIndex < populationB.size(); ibIndex++) {
+					
+							if (iaIndex != ibIndex) {
+			
+								Individual indB = (Individual) populationB.pop.get(ibIndex);
+																	
+								// Calculate vector pointing away from neighbor
+								diff = PVector.sub(indA.loc,indB.loc);
+								diff.normalize();
+								// weight by Coulomb's law
+								distance = PVector.dist(indA.loc,indB.loc);
+								diff.mult( coulomb(distance) );
+								push.add(diff);
+				
+							}
+						
+						}
+						
+					}
+			
+				}
+															
+				// forces accelerate the individual			
+				indA.acc.add(push);
+			
+			}
+		}
+		
+  	}
+  		
+	float coulomb(float d) {
+		float force;
+		if (d > 0) {
+			force = sq(CHARGE) / sq(d);
+		}
+		else {
+			force = 10000;
+		}
+		return force;
+	}	
+	
+}
