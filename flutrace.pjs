@@ -39,15 +39,14 @@ boolean FRATE;
 boolean BORDERS;
 boolean SHOWTIME;
 boolean SHOWIND;
-boolean BLENDING;
 boolean SHOWWORLD;
 boolean TRACING;
 float BG;
 float OUTLINE;
 float MULT;
-float BLENDINGCOL;
 float CARRYING_CAPICITY;
 float ONEDIMENRATIO;
+float MU;
 
 boolean TWODIMEN;
 int TRACEDEPTH;
@@ -85,7 +84,6 @@ void setup() {
 	BORDERS = false;
 	SHOWTIME = true;
 	SHOWIND = true;
-	BLENDING = true;
 	SHOWWORLD = true;
 	TRACING = false;
 
@@ -98,7 +96,6 @@ void setup() {
 	BLEND = 0.5; // 0.5
 	BG = 20;
 	OUTLINE = 100;
-	BLENDINGCOL = 150;
 	TIMEOFYEAR = 0;	// on 0 to 1
 	
 	TRACEDEPTH = 34; // 300
@@ -111,7 +108,8 @@ void setup() {
 	MULT = 7.0; // 8.0 // 30.0
 	GEN = (5.0*MULT) / 365.0;				// years per generation
 	CARRYING_CAPICITY = 0.6;
-	ONEDIMENRATIO = 0.35;	
+	ONEDIMENRATIO = 0.35;
+	MU = 0.05;
 	
 	D = 7;
 	N = new int[D];
@@ -247,7 +245,6 @@ void draw() {
 	if (HELP) { help(); }
 	if (FRATE) { showFrameRate(); }
 	if (SHOWTIME && TWODIMEN) { timeOfYear(); }
-	blendingDisplay();
 	setTimeOfYear();
 }
 
@@ -268,8 +265,7 @@ void help() {
 	text("S",10,h); text("-  show/hide statistics and frame rate",70,h); h += mod;
 	text("SPACE",10,h); text("-  start/stop animation",70,h); h += mod;
 	text("D",10,h); text("-  start/stop population dynamics",70,h); h += mod;
-	text("M",10,h); text("-  start/stop migration",70,h); h += mod;
-	text("B",10,h); text("-  start/stop blending",70,h); h += mod;		
+	text("M",10,h); text("-  start/stop migration",70,h); h += mod;	
 	text("T",10,h); text("-  show/hide tracing",70,h); h += mod;
 	text("2",10,h); text("-  switch between 1 and 2 dimensions",70,h); h += mod;		
 	text("LEFT",10,h); text("-  decrease speed",70,h); h += mod;
@@ -321,25 +317,6 @@ void timeOfYear() {
 	
 }
 
-void blendingDisplay() {
-
-	fill(0,0,BLENDINGCOL);
-	stroke(0,0,BLENDINGCOL);
-	smooth();
-	textFont(fontN, 12);
-	if (BLENDING) {
-//		text("blending on", width-75, 18);
-	}
-	else {
-		text("blending off", width-75, 18);
-	}
-	
-	if (BLENDINGCOL > 75) {
-		BLENDINGCOL = BLENDINGCOL - 3;
-	}
-
-}
-
 void keyPressed() {
 	if (key == ' ') {
 		if (LOOPING) {
@@ -351,14 +328,6 @@ void keyPressed() {
 			loop();
 		}
   	} 
-  	if (key == 'b') {
-		if (BLENDING) { 
-			BLENDING = false; 
-		}
-		else if (!BLENDING) { 
-			BLENDING = true; 	
-		}
-  	}
   	if (key == 'm') {
 		if (MIGRATION) { MIGRATION = false; }
 		else if (!MIGRATION) { MIGRATION = true; }
@@ -437,7 +406,7 @@ class Individual {
 	float hue;
 	ArrayList trace;	
 
-	Individual(PVector l, float h) {
+	Individual(PVector l) {
 	
 		loc = l.get();
     	vel = new PVector(0,0);
@@ -445,7 +414,7 @@ class Individual {
     	rad = 0.001;
     	growing = true;
     	dying = false;
-    	hue = h;
+    	hue = INDHUE;
 
   		if (!TWODIMEN) {
 			loc.y = height-BASELINE;					// constrains to horizontal line	
@@ -538,6 +507,10 @@ class Individual {
     		trace.add(tl);
     	}
 	}
+	
+	void mutate() {
+		hue = random(0,100);
+	}	
 		  
 	void display() {
     	if (TRACING) { displayTrace(); }	
@@ -597,7 +570,7 @@ class Population {
    			if (!TWODIMEN) {
     			h = height-BASELINE;
     		}    		
-    		pop.add(new Individual(new PVector(w,h), hu));
+    		pop.add(new Individual(new PVector(w,h)));
     	}
     	
 		ploc = l;
@@ -612,7 +585,7 @@ class Population {
 
 	void run() {
 		if (DYNAMICS) { splitstep(); }
-		if(BLENDING) { pushColor(); }
+		mutate();		
 		repulsion();
 		update();
 		reflection();
@@ -640,7 +613,7 @@ class Population {
    			if (!TWODIMEN) {
     			h = height-BASELINE;
     		}    		
-    		pop.add(new Individual(new PVector(w,h), hue));
+    		pop.add(new Individual(new PVector(w,h)));
     	}
 	}
 
@@ -658,7 +631,7 @@ class Population {
 		else {
 			float w = width/2 + random(-1,1);
 			float h = height/2 + random(-1,1);
-			pop.add(new Individual(new PVector(w,h), hue));
+			pop.add(new Individual(new PVector(w,h)));
 		}
 		
 	}
@@ -732,6 +705,17 @@ class Population {
 		}
 		return target;
 	}
+	
+	void mutate() {
+		float popsize = (float) size();	
+		float popMu = (1 / (GEN * FRAMESPERYEAR) ) * popsize * MU;
+		int events = poissonSample(popMu);
+		for (int i = 0; i < events; i++) {
+			int rand = int(random(0,pop.size()));
+			Individual ind = (Individual) pop.get(rand);
+			ind.mutate();
+		}
+	}	
 	
 	void resetTrace() {
 		for (int i = 0; i < pop.size(); i++) {
