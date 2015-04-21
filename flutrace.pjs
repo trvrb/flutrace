@@ -70,7 +70,7 @@ PImage backgroundmap;
 
 void setup() {
 
-	size(800, 360); // 1000, 328 // 1000,500 // 800,500
+	size(1920, 700); // 1000, 328 // 1000,500 // 800,500
 			
 	colorMode(HSB,100);
 	rectMode(CENTER);
@@ -90,8 +90,8 @@ void setup() {
 	TRACING = false;
 
 	CHARGE = 2.5; // 30
-	MAXVEL = 5.0; // 3.0 // 1800.0
-	MAXRAD = 3.5; // 6
+	MAXVEL = 6.0; // 3.0 // 1800.0
+	MAXRAD = 5; // 6
 	BASELINE = 25;
 	WALLMULTIPLIER = 20;
 	PMULTIPLIER = 10; // 10 // 30
@@ -108,7 +108,7 @@ void setup() {
 	MIG = 1;								// migration events per year
 	FRAMESPERYEAR = 800.0; // 1800.0		// provides timescale
 	
-	MULT = 6.0; // 8.0 // 30.0
+	MULT = 7.0; // 8.0 // 30.0
 	GEN = (5.0*MULT) / 365.0;				// years per generation
 	CARRYING_CAPICITY = 0.6;
 	ONEDIMENRATIO = 0.35;	
@@ -151,23 +151,23 @@ void setup() {
 	H[6] = 84;
 	
 	XLOC = new float[D];
-	XLOC[0] = 100;
-	XLOC[1] = 9;
-	XLOC[2] = 138;
-	XLOC[3] = 143;
-	XLOC[4] = 305;
-	XLOC[5] = 103.8;
-	XLOC[6] = 263;	
+	XLOC[0] = 112;		// China
+	XLOC[1] = 7;		// Europe
+	XLOC[2] = 142;		// Japan
+	XLOC[3] = 145;		// Oceania
+	XLOC[4] = 310;		// South America
+	XLOC[5] = 116;		// Southeast Asia
+	XLOC[6] = 265;		// USA
 	for (int i=0; i<D; i++) { XLOC[i] = (XLOC[i] + 25) * (width/360.0); }
 	
 	YLOC = new float[D];
-	YLOC[0] = -30;
-	YLOC[1] = -50;
-	YLOC[2] = -40;
-	YLOC[3] = 15;
-	YLOC[4] = 0;
-	YLOC[5] = -5;
-	YLOC[6] = -38;
+	YLOC[0] = -35;		// China
+	YLOC[1] = -52;		// Europe
+	YLOC[2] = -42;		// Japan
+	YLOC[3] = 15;		// Oceania
+	YLOC[4] = 3;		// South America
+	YLOC[5] = -10;		// Southeast Asia
+	YLOC[6] = -44;		// USA
 	for (int i=0; i<D; i++) { YLOC[i] = (YLOC[i] + 68) * (height/118.0); }
 	
 	M = new float[D][D];
@@ -232,6 +232,7 @@ void setup() {
 	LOOPING = true;
 	
 	fontN = loadFont("GillSans-48.vlw");	
+	strokeWeight(2);		
 	landscape = new Landscape();
 	/* @pjs preload="map.png"; */
 	backgroundmap = loadImage("map.png");
@@ -1016,7 +1017,7 @@ class Landscape {
     	ls = new ArrayList(); 
 
 		for (int i=0; i<D; i++) {
-			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 60, H[i], N[i], EPS[i], PHASE[i] ));
+			ls.add(new Population(new PVector(XLOC[i],YLOC[i]), 70, H[i], N[i], EPS[i], PHASE[i] ));
 		}
 
   	}
